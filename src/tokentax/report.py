@@ -46,6 +46,7 @@ def to_markdown(run: BenchmarkRun) -> str:
 
     lines.extend(report_tables.matrix(run, tokenizers, languages))
     lines.extend(report_tables.split_note(run))
+    lines.extend(report_tables.sample_note(run))
     lines.append("")
     lines.extend(report_tables.spread(run, languages))
     lines.append("")

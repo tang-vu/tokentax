@@ -120,6 +120,31 @@ def split_note(run: BenchmarkRun) -> list[str]:
     ]
 
 
+def sample_note(run: BenchmarkRun, threshold: float = 0.8) -> list[str]:
+    """Name languages that yielded far fewer pairs than were asked for.
+
+    Filtering removes markup-bearing rows, and OPUS-100 carries those very
+    unevenly across languages. A language measured on half the intended sample
+    deserves to be flagged rather than presented as equally precise.
+    """
+    floor = run.samples_requested * threshold
+    short = sorted(
+        {
+            (m.language_name, m.pairs)
+            for m in run.measurements
+            if m.pairs < floor
+        }
+    )
+    if not short:
+        return []
+    listed = ", ".join(f"{name} ({pairs})" for name, pairs in short)
+    return [
+        "",
+        f"> Fewer than {run.samples_requested} pairs survived filtering for: "
+        f"{listed}. Their figures rest on a smaller sample than the rest.",
+    ]
+
+
 def methodology() -> list[str]:
     return [
         "## Methodology",

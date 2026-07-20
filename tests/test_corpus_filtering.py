@@ -41,6 +41,25 @@ def test_rejects_misaligned_pair_by_length_ratio():
     assert not corpus.is_usable(english, "x" * 5000)  # target far too long
 
 
+def test_rejects_pairs_containing_markup():
+    # Crawl leftovers land asymmetrically: in OPUS-100's Khmer portion they
+    # appear in 39% of target sentences and none of the English ones, which
+    # would add tokens to every ratio's numerator only.
+    english = "How are track ratings determined in this system?"
+    assert not corpus.is_usable(english, "Cau tra loi day &#160; roi.")
+    assert not corpus.is_usable(english, "Cau tra loi day & # 160; roi.")
+    assert not corpus.is_usable(english, "Cau tra loi &nbsp; day roi.")
+    assert not corpus.is_usable(english, "Cau tra loi <br> day roi.")
+    assert not corpus.is_usable(english, "Xem tai https://example.com nhe.")
+    assert not corpus.is_usable(english + " &amp; more", "Cau tra loi day roi.")
+
+
+def test_accepts_ordinary_punctuation_that_resembles_markup():
+    english = "The result was better than expected for the whole team."
+    assert corpus.is_usable(english, "Ket qua tot hon du kien <thật> cho ca doi.")
+    assert corpus.is_usable(english, "Chi phi tang 5 & 6 phan tram trong nam nay.")
+
+
 def test_rejects_empty_target():
     assert not corpus.is_usable("A reasonably long English sentence here.", "")
 

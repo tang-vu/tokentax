@@ -11,6 +11,7 @@ The language table itself lives in :mod:`languages`.
 
 from __future__ import annotations
 
+import re
 from dataclasses import dataclass
 from typing import Iterator
 
@@ -28,6 +29,25 @@ MIN_CHARS_TARGET = 5
 # Character-length ratio outside this band almost always means misalignment.
 MIN_CHAR_RATIO = 0.2
 MAX_CHAR_RATIO = 5.0
+
+# Leftover markup from the crawl: HTML entities, tags, escapes, bare URLs.
+# These matter because they are distributed *asymmetrically* — in the Khmer
+# portion of OPUS-100 they appear in 39% of target sentences and 0% of the
+# English ones. Markup only on the target side adds tokens to the numerator of
+# every ratio and none to the denominator, inflating that language's tax.
+MARKUP = re.compile(
+    r"""
+    &\s*\#\s*\d+\s*;      # numeric entity, sometimes space-separated by the crawl
+    | &[a-zA-Z]{2,6};     # named entity
+    # Named HTML tags only. Matching any <word> would also strike prose that
+    # uses angle brackets for emphasis, which is common in translated text.
+    | </?(?:br|hr|p|b|i|u|a|em|strong|div|span|img|li|ul|ol|
+          td|tr|table|font|h[1-6])\b[^>]{0,40}>
+    | https?://           # bare URL
+    | \\[nt]              # literal escape sequence
+    """,
+    re.VERBOSE,
+)
 
 
 @dataclass(frozen=True)
@@ -125,6 +145,11 @@ def is_usable(english: str, target: str) -> bool:
         return False
     # Identical strings mean the row was never actually translated.
     if english == target:
+        return False
+    # Drop the pair whichever side the markup is on. Dropping only the
+    # asymmetric cases would be closer to the actual bias, but "no markup
+    # anywhere" is a rule a reader can check by eye.
+    if MARKUP.search(english) or MARKUP.search(target):
         return False
     ratio = len(target) / len(english)
     return MIN_CHAR_RATIO <= ratio <= MAX_CHAR_RATIO

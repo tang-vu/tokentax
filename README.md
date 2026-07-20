@@ -19,14 +19,14 @@ no model weights, no API keys — tokenizers only.
 101 languages, is the cheapest option for **28 of 48** languages — more than
 every other tokenizer combined. It does this at 250k vocabulary entries, the
 same size as BLOOM's, and it wins on exactly the languages everyone else
-struggles with: Khmer 1.49x, Burmese 1.38x, Sinhala 1.25x, Amharic 1.50x.
+struggles with: Khmer 1.38x, Burmese 1.38x, Sinhala 1.25x, Amharic 1.50x.
 Coverage is a choice, not a budget.
 
 **Narrowing a model's language list has a measurable price.** Cohere's Aya 101
 targets 101 languages; its successor Aya Expanse targets 23. Expanse's 255k
 vocabulary — *larger* than Aya 101's 250k — contains **zero** entries in Tamil
 script, so Tamil falls back to raw bytes: 1.34x becomes 6.10x. Malayalam 1.17x →
-7.32x, Khmer 1.49x → 7.84x. Aya 101 is the cheaper tokenizer on **43 of 48**
+7.32x, Khmer 1.38x → 7.46x. Aya 101 is the cheaper tokenizer on **43 of 48**
 languages here; Expanse wins only on Vietnamese, Portuguese, French, Spanish,
 and Italian. Vocabulary budget is not the constraint — allocation is.
 
@@ -40,9 +40,12 @@ vocabulary, two products.
 
 **Fixing one script can break another.** Mistral replaced its 32k vocabulary
 with the 131k Tekken, and for Indic scripts it worked: Malayalam fell from 8.77x
-to 2.33x, Punjabi 8.93x to 2.77x. Khmer went the other way — 5.46x to **12.08x**,
-the highest tax anywhere in this benchmark, and worse than GPT-2's 11.88x. One
-Khmer sentence costing 6 tokens in English costs 98 on Tekken and 16 on Aya.
+to 2.33x, Punjabi 9.02x to 2.79x. Khmer went the other way — 5.08x to **11.66x**,
+the highest tax anywhere in this benchmark, and level with GPT-2's 11.57x. Take
+one aligned pair of equal length:
+
+> *He won't be able to escape from there without a miracle, will he?*
+> — 16 tokens in English, **164** on Tekken, 40 on GPT-4o, 25 on Aya 101.
 
 **A 2025 tokenizer can be worse than a 2019 one.** GPT-2 is last place for 45 of
 48 languages. The three exceptions — Khmer, Punjabi, Armenian — are all beaten
@@ -76,7 +79,7 @@ Token tax compounds into three real costs:
 
 - **Bill.** APIs charge per token. A 2x tax is a 2x invoice for identical work.
 - **Context.** A nominal 128k window holds only ~11k tokens' worth of English
-  content when you write Khmer at 12.08x.
+  content when you write Khmer at 11.66x.
 - **Latency.** More tokens per request means slower first token and slower
   generation.
 
@@ -119,11 +122,19 @@ tokentax render                        # rebuild reports from existing JSON
 
 ## How it stays honest
 
-Benchmarks are easy to accidentally rig. Four things guard against it:
+Benchmarks are easy to accidentally rig. Five things guard against it:
 
 **Aligned translations.** Every ratio compares the same sentence in both
 languages, from [OPUS-100](https://huggingface.co/datasets/Helsinki-NLP/opus-100).
 Counting tokens on unrelated texts would measure the texts, not the tokenizer.
+
+**Crawl markup is removed, because it lands unevenly.** OPUS-100 is scraped, and
+leftover HTML entities appeared in 39% of the Khmer target sentences against 0%
+of their English counterparts. Markup on one side only adds tokens to the
+numerator of every ratio and none to the denominator; leaving it in inflated
+Khmer's tax by 4% and Gemma 3's Khmer figure by 10%. Pairs carrying markup on
+either side are dropped, which is why some languages report fewer than the
+requested pairs — the report names them.
 
 **Lossy encodings are disqualified.** A tokenizer that cannot represent a script
 emits `<unk>` and posts a token count for text it has already mangled. PhoBERT

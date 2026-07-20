@@ -67,7 +67,7 @@ def test_language_and_tokenizer_counts(data, readme):
 @pytest.mark.parametrize(
     "language,tokenizer,claimed",
     [
-        ("Khmer", "aya-101", 1.49),
+        ("Khmer", "aya-101", 1.38),
         ("Burmese", "aya-101", 1.38),
         ("Sinhala", "aya-101", 1.25),
         ("Amharic", "aya-101", 1.50),
@@ -75,14 +75,14 @@ def test_language_and_tokenizer_counts(data, readme):
         ("Tamil", "aya-expanse", 6.10),
         ("Malayalam", "aya-101", 1.17),
         ("Malayalam", "aya-expanse", 7.32),
-        ("Khmer", "aya-expanse", 7.84),
+        ("Khmer", "aya-expanse", 7.46),
         ("Malayalam", "mistral-v3", 8.77),
         ("Malayalam", "mistral-nemo", 2.33),
-        ("Punjabi", "mistral-v3", 8.93),
-        ("Punjabi", "mistral-nemo", 2.77),
-        ("Khmer", "mistral-v3", 5.46),
-        ("Khmer", "mistral-nemo", 12.08),
-        ("Khmer", "gpt2", 11.88),
+        ("Punjabi", "mistral-v3", 9.02),
+        ("Punjabi", "mistral-nemo", 2.79),
+        ("Khmer", "mistral-v3", 5.08),
+        ("Khmer", "mistral-nemo", 11.66),
+        ("Khmer", "gpt2", 11.57),
         ("Vietnamese", "mistral-v3", 2.25),
         ("Vietnamese", "cl100k", 1.93),
         ("Vietnamese", "bloom", 1.04),
@@ -105,7 +105,10 @@ def test_khmer_is_the_worst_cell_measured(data, readme):
         key=lambda m: m["tax"],
     )
     assert worst["language_name"] == "Khmer"
-    assert worst["tokenizer"] == "mistral-nemo"
+    # The two Tekken builds land within 0.01x of each other on Khmer, so which
+    # one takes the top spot is not a meaningful distinction. The README says
+    # "Tekken" rather than naming a build, and this follows suit.
+    assert worst["tokenizer"] in {"mistral-nemo", "mistral-small3"}
     assert "the highest tax anywhere in this benchmark" in readme
 
 
@@ -218,6 +221,18 @@ def test_cl100k_to_o200k_improvement(data, language, claimed):
     assert round(ratio, 1) == claimed
 
 
+def test_markup_filtering_left_a_visible_dent_in_sample_sizes(data, readme):
+    """The README explains why some languages report fewer pairs than asked.
+
+    If filtering ever stops biting, that explanation becomes confusing noise
+    and should be removed rather than left to puzzle readers.
+    """
+    requested = 500
+    short = {m["language_name"] for m in data if m["pairs"] < requested}
+    assert "Khmer" in short
+    assert "fewer than the requested pairs" in readme
+
+
 def test_khmer_effective_context_claim(data, readme):
     worst = max(m["tax"] for m in general_purpose(by_language(data, "Khmer")))
     assert round(128_000 / worst / 1000) == 11
@@ -226,7 +241,7 @@ def test_khmer_effective_context_claim(data, readme):
 
 @pytest.mark.parametrize(
     "language,claimed",
-    [("Khmer", 1.49), ("Burmese", 1.38), ("Sinhala", 1.25), ("Amharic", 1.50)],
+    [("Khmer", 1.38), ("Burmese", 1.38), ("Sinhala", 1.25), ("Amharic", 1.50)],
 )
 def test_aya_sets_the_floor_for_the_worst_served_languages(data, language, claimed):
     rows = general_purpose(by_language(data, language))

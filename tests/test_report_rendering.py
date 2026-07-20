@@ -134,6 +134,32 @@ def test_no_split_note_when_every_row_used_the_requested_split():
     assert "not held out" not in report.to_markdown(run)
 
 
+def test_short_sample_is_disclosed():
+    # Markup filtering removes rows very unevenly across languages, so a
+    # language measured on half the intended sample must not read as equally
+    # precise as the rest.
+    # build_run requests 100 pairs, so 60 is well under the 80% floor.
+    thin = make_measurement("o200k", "th", 2.50)
+    thin.pairs = 60
+    run = build_run([make_measurement("o200k", "vi", 1.19), thin])
+    markdown = report.to_markdown(run)
+    assert "Thai (60)" in markdown
+    assert "smaller sample" in markdown
+
+
+def test_sample_note_ignores_languages_just_under_the_request():
+    # A language that lost a couple of rows is not worth flagging.
+    near = make_measurement("o200k", "th", 2.50)
+    near.pairs = 95
+    run = build_run([near])
+    assert "smaller sample" not in report.to_markdown(run)
+
+
+def test_no_sample_note_when_every_language_is_full():
+    run = build_run([make_measurement("o200k", "vi", 1.19)])
+    assert "smaller sample" not in report.to_markdown(run)
+
+
 def test_skipped_entries_are_reported():
     run = build_run([make_measurement("o200k", "vi", 1.19)])
     run.skipped["llama3"] = "gated repo"
