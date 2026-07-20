@@ -12,7 +12,7 @@ import json
 from pathlib import Path
 
 from . import report_tables
-from .benchmark import BenchmarkRun, Measurement
+from .results import BenchmarkRun, Measurement
 from .ranking import deployable, ordered_languages, ordered_tokenizers
 
 

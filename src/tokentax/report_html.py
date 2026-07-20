@@ -10,7 +10,7 @@ from __future__ import annotations
 import html
 from pathlib import Path
 
-from .benchmark import BenchmarkRun, Measurement
+from .results import BenchmarkRun, Measurement
 from .html_assets import CSS, JS
 from .languages import BY_CODE
 from .ranking import (

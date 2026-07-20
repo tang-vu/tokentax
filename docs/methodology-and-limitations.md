@@ -32,6 +32,19 @@ Cost accrues on totals, so long sentences should carry proportionally more
 weight. The per-sentence median and p90 appear in the JSON output; a large gap
 between aggregate and median indicates a few long sentences dominate.
 
+## Splits
+
+The `test` split is used wherever it exists. A number of low-resource OPUS-100
+configs ship only `train`; those languages fall back to `validation`, then
+`train`, and the split actually used is recorded per measurement and named in
+both reports.
+
+The fallback is deliberate. Restricting the benchmark to languages with a
+held-out split would quietly exclude the least-resourced ones — precisely the
+group whose token tax is highest and least documented. The cost is that those
+rows are not held out and, being noisier crawled text, less precise; they are
+marked so readers can weigh them accordingly.
+
 ## Filtering
 
 OPUS-100 is crawled data. Before counting, pairs are dropped when:
@@ -88,3 +101,12 @@ in the report's `Skipped` section rather than hidden.
 **Single corpus.** Every number derives from one dataset. Cross-checking against
 FLORES+ or Tatoeba would strengthen the conclusions; FLORES+ is currently gated
 on the Hub, which is why it is not used here.
+
+**Language coverage is intentionally skewed.** The 47 languages over-represent
+non-Latin scripts and under-resourced languages relative to global speaker
+counts. Western European languages are present as a control group, not for
+balance. Do not read the language list as a ranking of importance.
+
+**Sentence-level, not document-level.** Tax is measured on individual sentences.
+Long-document behaviour may differ slightly as a tokenizer's merges get more
+opportunities to fire, though the effect is small for BPE.

@@ -2,7 +2,8 @@
 
 __version__ = "0.1.0"
 
-from .benchmark import BenchmarkRun, Measurement, measure, run
+from .benchmark import measure, run
+from .results import BenchmarkRun, Measurement
 from .corpus import Pair
 from .languages import LANGUAGES, Language
 from .tokenizer_registry import REGISTRY, TokenizerSpec

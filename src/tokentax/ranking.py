@@ -6,7 +6,7 @@ measurements count as trustworthy, and what order tells the clearest story.
 
 from __future__ import annotations
 
-from .benchmark import BenchmarkRun, Measurement
+from .results import BenchmarkRun, Measurement
 
 
 def reliable(measurements: list[Measurement]) -> list[Measurement]:

@@ -8,8 +8,8 @@ import sys
 from pathlib import Path
 
 from . import corpus, report, report_html, tokenizer_registry
-from .benchmark import BenchmarkRun
 from .benchmark import run as run_benchmark
+from .results import BenchmarkRun
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -53,7 +53,9 @@ def build_parser() -> argparse.ArgumentParser:
     sub.add_parser("list", help="list available tokenizers and languages")
 
     render = sub.add_parser(
-        "html", help="re-render the HTML report from an existing results JSON"
+        "render",
+        help="re-render the Markdown and HTML reports from an existing "
+        "results JSON, without repeating the measurement pass",
     )
     render.add_argument(
         "--input",
@@ -64,8 +66,8 @@ def build_parser() -> argparse.ArgumentParser:
     render.add_argument(
         "--out",
         type=Path,
-        default=Path("results/index.html"),
-        help="output HTML path (default: results/index.html)",
+        default=Path("results"),
+        help="output directory (default: results)",
     )
     return parser
 
@@ -109,21 +111,14 @@ def cmd_bench(args: argparse.Namespace) -> int:
             print(f"  {key}: {reason}", file=sys.stderr)
         return 1
 
-    out = args.out
-    report.to_json(result, out / "token-tax.json")
-    markdown_path = out / "token-tax.md"
-    markdown_path.parent.mkdir(parents=True, exist_ok=True)
-    markdown_path.write_text(report.to_markdown(result), encoding="utf-8")
-    report_html.write(result, out / "index.html")
-
     print()
     print(report.summarize(result))
     print()
-    print(f"wrote {markdown_path}, {out / 'token-tax.json'}, {out / 'index.html'}")
+    _write_reports(result, args.out)
     return 0
 
 
-def cmd_html(args: argparse.Namespace) -> int:
+def cmd_render(args: argparse.Namespace) -> int:
     if not args.input.exists():
         print(f"error: {args.input} not found — run `tokentax bench` first",
               file=sys.stderr)
@@ -132,9 +127,18 @@ def cmd_html(args: argparse.Namespace) -> int:
     if not run.measurements:
         print(f"error: {args.input} contains no measurements", file=sys.stderr)
         return 1
-    report_html.write(run, args.out)
-    print(f"wrote {args.out}")
+    _write_reports(run, args.out)
     return 0
+
+
+def _write_reports(run: BenchmarkRun, out: Path) -> None:
+    """Every output format is written from one run, so they never disagree."""
+    out.mkdir(parents=True, exist_ok=True)
+    report.to_json(run, out / "token-tax.json")
+    (out / "token-tax.md").write_text(report.to_markdown(run), encoding="utf-8")
+    report_html.write(run, out / "index.html")
+    print(f"wrote {out / 'token-tax.md'}, {out / 'token-tax.json'}, "
+          f"{out / 'index.html'}")
 
 
 def _split(value: str) -> list[str]:
@@ -147,8 +151,8 @@ def main(argv: list[str] | None = None) -> int:
         return cmd_list()
     if args.command == "bench":
         return cmd_bench(args)
-    if args.command == "html":
-        return cmd_html(args)
+    if args.command == "render":
+        return cmd_render(args)
     return 2  # pragma: no cover - argparse enforces the choices
 
 

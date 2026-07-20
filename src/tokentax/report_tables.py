@@ -6,7 +6,7 @@ Each function returns a list of lines including its own section heading, so
 
 from __future__ import annotations
 
-from .benchmark import BenchmarkRun
+from .results import BenchmarkRun
 from .ranking import deployable
 
 

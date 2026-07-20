@@ -1,7 +1,7 @@
 """Tests for report rendering, especially the handling of lossy cells."""
 
 from tokentax import report
-from tokentax.benchmark import BenchmarkRun, Measurement
+from tokentax.results import BenchmarkRun, Measurement
 
 
 def make_measurement(

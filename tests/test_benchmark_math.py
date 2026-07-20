@@ -6,7 +6,8 @@ same interface the real tokenizer backends expose.
 
 import pytest
 
-from tokentax.benchmark import Measurement, measure, percentile
+from tokentax.benchmark import measure, percentile
+from tokentax.results import Measurement
 from tokentax.corpus import Language, Pair
 from tokentax.tokenizer_registry import Encoding, TokenizerSpec, supports
 

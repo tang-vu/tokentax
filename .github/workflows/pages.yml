@@ -1,0 +1,36 @@
+name: pages
+
+# Publishes the committed HTML report. The benchmark itself is not run here:
+# results are checked in deliberately so the published page always matches the
+# numbers in the repo, and so a CI outage cannot silently change them.
+on:
+  push:
+    branches: [main]
+    paths:
+      - "results/index.html"
+      - ".github/workflows/pages.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/configure-pages@v5
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: results
+      - id: deployment
+        uses: actions/deploy-pages@v4
