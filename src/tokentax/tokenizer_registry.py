@@ -107,7 +107,7 @@ REGISTRY: tuple[TokenizerSpec, ...] = (
         backend="hf",
         ref="NousResearch/Meta-Llama-3-8B",
         family="Meta",
-        vocab_note="128k BPE; community mirror, Meta's own repo is gated",
+        vocab_note="128k BPE; mirror, verified identical to meta-llama/Meta-Llama-3-8B",
     ),
     TokenizerSpec(
         key="gemma2",
@@ -201,7 +201,7 @@ REGISTRY: tuple[TokenizerSpec, ...] = (
         backend="hf",
         ref="unsloth/Llama-4-Scout-17B-16E-Instruct",
         family="Meta",
-        vocab_note="201k BPE; community mirror, Meta's own repo is gated",
+        vocab_note="201k BPE; mirror, verified identical to Meta's Llama-4-Scout",
     ),
     TokenizerSpec(
         key="qwen3",

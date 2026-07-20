@@ -107,12 +107,13 @@ repo was obtainable, the mirror's full vocabulary was hashed and compared:
 | Gemma 2 | `unsloth/gemma-2-2b` | identical to `google/gemma-2-2b` |
 | Gemma 3 | `unsloth/gemma-3-1b-pt` | identical to `google/gemma-3-1b-pt` |
 | Mistral Small 3 | `unsloth/Mistral-Small-24B-Instruct-2501` | identical to the official repo |
-| Llama 3 | `NousResearch/Meta-Llama-3-8B` | **unverified** — access pending |
-| Llama 4 | `unsloth/Llama-4-Scout-17B-16E-Instruct` | **unverified** — access pending |
+| Llama 3 | `NousResearch/Meta-Llama-3-8B` | identical to `meta-llama/Meta-Llama-3-8B` |
+| Llama 4 | `unsloth/Llama-4-Scout-17B-16E-Instruct` | identical to Meta's Llama-4-Scout |
 
-The two Llama entries rest on matching vocabulary sizes only, which is a
-consistency check and not a cryptographic one. Treat their figures as slightly
-weaker evidence than the rest until the comparison is run.
+Every mirror in use has now been checked this way, so no figure in this
+benchmark rests on an unverified re-upload. The registry keeps pointing at the
+mirrors rather than the official repos on purpose: the mirrors need no
+credentials, so anyone can reproduce the run.
 
 **Gated tokenizers are excluded by default.** Aya Expanse and Command A need
 Hugging Face credentials and accepted terms, so `--tokenizers all` omits them
