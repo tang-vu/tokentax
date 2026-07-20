@@ -4,13 +4,19 @@ Two backends are supported:
   - ``tiktoken``: OpenAI's BPE encodings, addressed by encoding name.
   - ``hf``: any tokenizer.json hosted on the Hugging Face Hub.
 
-Some Hub repos are gated (Llama, Gemma). They stay in the registry so the
-comparison is honest about what was skipped, but loading them requires the
-caller to be authenticated; failures surface as ``TokenizerLoadError``.
+Entries marked ``gated`` need Hugging Face credentials in ``HF_TOKEN`` plus
+accepted terms on the Hub, so they are left out of ``--tokenizers all`` and the
+report records them as skipped. That keeps the default run reproducible by
+anyone while still allowing the full comparison for those with access.
+
+Where a tokenizer's official repo is gated but a public re-upload exists, the
+registry points at the re-upload so the benchmark stays runnable, and the note
+records whether that mirror has been hash-verified against the original.
 """
 
 from __future__ import annotations
 
+import os
 from dataclasses import dataclass
 from typing import Callable, Iterable
 
@@ -109,7 +115,7 @@ REGISTRY: tuple[TokenizerSpec, ...] = (
         backend="hf",
         ref="unsloth/gemma-2-2b",
         family="Google",
-        vocab_note="256k SentencePiece; community mirror, Google's repo is gated",
+        vocab_note="256k SentencePiece; mirror, verified identical to google/gemma-2-2b",
     ),
     TokenizerSpec(
         key="mistral-nemo",
@@ -152,6 +158,26 @@ REGISTRY: tuple[TokenizerSpec, ...] = (
         vocab_note="129k BPE",
     ),
     TokenizerSpec(
+        key="aya-expanse",
+        label="Aya Expanse",
+        backend="hf",
+        ref="CohereLabs/aya-expanse-8b",
+        family="Cohere",
+        # Aya 101 targeted 101 languages; Expanse targets 23. Languages outside
+        # that list have no vocabulary coverage at all and fall back to bytes.
+        vocab_note="255k, scoped to 23 languages (Aya 101's successor)",
+        gated=True,
+    ),
+    TokenizerSpec(
+        key="command-a",
+        label="Command A",
+        backend="hf",
+        ref="CohereLabs/c4ai-command-a-03-2025",
+        family="Cohere",
+        vocab_note="255k, shares the Aya Expanse vocabulary",
+        gated=True,
+    ),
+    TokenizerSpec(
         key="mistral-small3",
         label="Mistral Small 3",
         backend="hf",
@@ -167,7 +193,7 @@ REGISTRY: tuple[TokenizerSpec, ...] = (
         backend="hf",
         ref="unsloth/gemma-3-1b-pt",
         family="Google",
-        vocab_note="262k SentencePiece; community mirror",
+        vocab_note="262k SentencePiece; mirror, verified identical to google/gemma-3-1b-pt",
     ),
     TokenizerSpec(
         key="llama4",
@@ -264,13 +290,25 @@ def _load_tiktoken(spec: TokenizerSpec) -> EncodeFn:
 
 def _load_hf(spec: TokenizerSpec) -> EncodeFn:
     try:
+        from huggingface_hub import hf_hub_download
         from tokenizers import Tokenizer
     except ImportError as exc:  # pragma: no cover - dependency is declared
         raise TokenizerLoadError(f"{spec.key}: tokenizers not installed") from exc
+
+    # Downloading the file explicitly rather than using Tokenizer.from_pretrained,
+    # which ignores HF_TOKEN and so fails on gated repos even with valid
+    # credentials in the environment.
     try:
-        tokenizer = Tokenizer.from_pretrained(spec.ref)
+        path = hf_hub_download(
+            spec.ref, "tokenizer.json", token=os.environ.get("HF_TOKEN") or None
+        )
+        tokenizer = Tokenizer.from_file(path)
     except Exception as exc:
-        hint = " (gated repo: run `huggingface-cli login`)" if spec.gated else ""
+        hint = (
+            " (gated repo: set HF_TOKEN and accept the model's terms on the Hub)"
+            if spec.gated
+            else ""
+        )
         raise TokenizerLoadError(
             f"{spec.key}: {type(exc).__name__}: {str(exc)[:120]}{hint}"
         ) from exc

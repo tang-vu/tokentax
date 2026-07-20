@@ -71,6 +71,11 @@ def test_language_and_tokenizer_counts(data, readme):
         ("Burmese", "aya-101", 1.38),
         ("Sinhala", "aya-101", 1.25),
         ("Amharic", "aya-101", 1.50),
+        ("Tamil", "aya-101", 1.34),
+        ("Tamil", "aya-expanse", 6.10),
+        ("Malayalam", "aya-101", 1.17),
+        ("Malayalam", "aya-expanse", 7.32),
+        ("Khmer", "aya-expanse", 7.84),
         ("Malayalam", "mistral-v3", 8.77),
         ("Malayalam", "mistral-nemo", 2.33),
         ("Punjabi", "mistral-v3", 8.93),
@@ -165,6 +170,37 @@ def test_sea_lion_matches_llama3_everywhere(data, readme):
     }
     assert llama and llama == sea
     assert "byte-for-byte Llama 3's" in readme
+
+
+def test_aya_101_beats_its_own_successor_on_most_languages(data, readme):
+    """Aya Expanse has the larger vocabulary and the narrower language list."""
+    expanse = {
+        m["language_name"]: m["tax"] for m in data if m["tokenizer"] == "aya-expanse"
+    }
+    old = {m["language_name"]: m["tax"] for m in data if m["tokenizer"] == "aya-101"}
+    cheaper = [lang for lang in old if old[lang] < expanse[lang]]
+    dearer = {lang for lang in old if old[lang] > expanse[lang]}
+    assert len(cheaper) == 43
+    assert dearer == {
+        "Vietnamese",
+        "Portuguese",
+        "French",
+        "Spanish",
+        "Italian",
+    }
+    assert "**43 of 48**" in readme
+
+
+def test_command_a_matches_aya_expanse_everywhere(data, readme):
+    """Two Cohere products, one vocabulary — as with SEA-LION and Llama 3."""
+    expanse = {
+        m["language_name"]: m["tax"] for m in data if m["tokenizer"] == "aya-expanse"
+    }
+    command = {
+        m["language_name"]: m["tax"] for m in data if m["tokenizer"] == "command-a"
+    }
+    assert expanse and expanse == command
+    assert "one vocabulary, two products" in readme
 
 
 def test_languages_claimed_cheaper_than_english(data, readme):

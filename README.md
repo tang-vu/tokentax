@@ -6,7 +6,7 @@ Same sentence, same meaning, different language — and wildly different token
 counts. `tokentax` measures that gap across LLM tokenizers using a
 human-translated parallel corpus, so the only variable is the tokenizer.
 
-**48 languages, 23 writing systems, 20 tokenizers.** Runs on a laptop: no GPU,
+**48 languages, 23 writing systems, 22 tokenizers.** Runs on a laptop: no GPU,
 no model weights, no API keys — tokenizers only.
 
 📊 **[Interactive results →](https://tang-vu.github.io/tokentax/)**
@@ -22,11 +22,21 @@ same size as BLOOM's, and it wins on exactly the languages everyone else
 struggles with: Khmer 1.49x, Burmese 1.38x, Sinhala 1.25x, Amharic 1.50x.
 Coverage is a choice, not a budget.
 
+**Narrowing a model's language list has a measurable price.** Cohere's Aya 101
+targets 101 languages; its successor Aya Expanse targets 23. Expanse's 255k
+vocabulary — *larger* than Aya 101's 250k — contains **zero** entries in Tamil
+script, so Tamil falls back to raw bytes: 1.34x becomes 6.10x. Malayalam 1.17x →
+7.32x, Khmer 1.49x → 7.84x. Aya 101 is the cheaper tokenizer on **43 of 48**
+languages here; Expanse wins only on Vietnamese, Portuguese, French, Spanish,
+and Italian. Vocabulary budget is not the constraint — allocation is.
+
 **A regional model can ship the tokenizer it was supposed to fix.** Llama-SEA-LION
 v3 is built for Southeast Asia by continued pretraining on Llama 3. Its Burmese
 and Khmer costs are *identical to Llama 3's*, because its content vocabulary is
 byte-for-byte Llama 3's — the only differences are three special tokens. The
-weights learned Southeast Asian languages; the tokenizer never did.
+weights learned Southeast Asian languages; the tokenizer never did. Cohere's
+Command A and Aya Expanse are likewise identical on all 48 languages — one
+vocabulary, two products.
 
 **Fixing one script can break another.** Mistral replaced its 32k vocabulary
 with the 131k Tekken, and for Indic scripts it worked: Malayalam fell from 8.77x

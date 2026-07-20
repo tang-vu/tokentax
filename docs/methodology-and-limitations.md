@@ -93,20 +93,32 @@ and therefore dilute the measured tax slightly in practice.
 `tokenizer.json` was loaded. Models sharing a vocabulary produce identical
 numbers; the registry labels are chosen to make the family clear.
 
-**Some tokenizers come from community mirrors.** Meta's and Google's own
-Hugging Face repos are gated behind an access agreement, which would make the
-benchmark unreproducible for anyone without accepted terms. Llama 3, Gemma 2,
-and Gemma 3 are therefore loaded from public re-uploads, flagged as mirrors in
-`tokentax list`.
+**Some tokenizers come from community mirrors, and the mirrors are verified.**
+Meta's and Google's own Hugging Face repos are gated behind an access
+agreement, which would make the benchmark unreproducible for anyone without
+accepted terms. Llama 3, Llama 4, Gemma 2, and Gemma 3 are therefore loaded
+from public re-uploads.
 
-Vocabulary sizes match the published specifications (Llama 3 at 128,256; Gemma 2
-at 256,000), which is a useful consistency check but not a cryptographic one. If
-a mirror diverged from the original in some subtler way, this benchmark would
-not detect it. Anyone with accepted terms can point those entries at the
-official repos and compare.
+Mirrors are not trusted on vocabulary size alone. Where access to the official
+repo was obtainable, the mirror's full vocabulary was hashed and compared:
 
-The `gated` flag remains in the registry so a future gated entry fails with a
-clear message rather than an opaque 401.
+| Tokenizer | Mirror | Status |
+|---|---|---|
+| Gemma 2 | `unsloth/gemma-2-2b` | identical to `google/gemma-2-2b` |
+| Gemma 3 | `unsloth/gemma-3-1b-pt` | identical to `google/gemma-3-1b-pt` |
+| Mistral Small 3 | `unsloth/Mistral-Small-24B-Instruct-2501` | identical to the official repo |
+| Llama 3 | `NousResearch/Meta-Llama-3-8B` | **unverified** — access pending |
+| Llama 4 | `unsloth/Llama-4-Scout-17B-16E-Instruct` | **unverified** — access pending |
+
+The two Llama entries rest on matching vocabulary sizes only, which is a
+consistency check and not a cryptographic one. Treat their figures as slightly
+weaker evidence than the rest until the comparison is run.
+
+**Gated tokenizers are excluded by default.** Aya Expanse and Command A need
+Hugging Face credentials and accepted terms, so `--tokenizers all` omits them
+and the report's `Skipped` section names them. The published results were
+produced with `all+gated`; reproducing them exactly requires an account with
+Cohere's terms accepted, and reproducing everything else requires nothing.
 
 **Single corpus.** Every number derives from one dataset. Cross-checking against
 FLORES+ or Tatoeba would strengthen the conclusions; FLORES+ is currently gated
