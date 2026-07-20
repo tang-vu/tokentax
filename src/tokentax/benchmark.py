@@ -96,7 +96,8 @@ def run(
     specs: list[TokenizerSpec],
     languages: list[Language],
     samples: int,
-    split: str = "test",
+    split: str | None = None,
+    source: str = "opus-100",
     progress: ProgressFn | None = None,
 ) -> BenchmarkRun:
     """Sweep every (tokenizer, language) cell, tolerating individual failures.
@@ -105,8 +106,12 @@ def run(
     cost is one download per language plus one per tokenizer.
     """
     say = progress or (lambda _msg: None)
+    spec = corpus.SOURCES[source]
+    split = split or spec["default_split"]
     result = BenchmarkRun(
         samples_requested=samples,
+        corpus_source=source,
+        corpus_name=spec["dataset"],
         corpus_split=split,
         generated_at=datetime.now(timezone.utc).isoformat(timespec="seconds"),
     )
@@ -121,9 +126,16 @@ def run(
             say(f"  skipped: {exc}")
 
     for language in languages:
+        if not corpus.supports(source, language.code):
+            result.skipped[f"corpus:{language.code}"] = (
+                f"{source} does not cover this language"
+            )
+            continue
         say(f"loading corpus {language.name} ({language.code})")
         try:
-            sample = corpus.load_pairs(language.code, samples, split=split)
+            sample = corpus.load_pairs(
+                language.code, samples, split=split, source=source
+            )
         except (RuntimeError, KeyError) as exc:
             result.skipped[f"corpus:{language.code}"] = str(exc)
             say(f"  skipped: {exc}")

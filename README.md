@@ -73,6 +73,32 @@ Full matrix, per-tokenizer detail, effective-context tables:
 [`results/token-tax.md`](results/token-tax.md) ·
 [raw JSON](results/token-tax.json)
 
+## Does it replicate?
+
+Everything above is measured on OPUS-100, which is crawled text. A quirk of one
+dataset can bias every figure derived from it — this benchmark already found one
+such quirk in its own data. So the whole run was repeated against
+[WMT24++](https://huggingface.co/datasets/google/wmt24pp): professional human
+translation, different domain, **no text in common**.
+
+Over the 31 languages both corpora cover:
+
+- the cheapest tokenizer agrees for **27 of 31** languages
+- the most expensive agrees for **26 of 31**
+- median drift in absolute tax: **12%**
+
+The headline findings hold on independent text. Aya 101 versus Aya Expanse on
+Tamil is 1.34x/6.10x on crawled text and 1.32x/6.43x on translated text; Tekken's
+Malayalam improvement is 8.77x → 2.33x and 10.43x → 2.50x. The four ranking
+disagreements are all between tokenizers within a few percent of each other.
+
+**Khmer is not in WMT24++**, so the single most extreme finding in this
+benchmark — Tekken at 11.66x — is the one that could not be cross-checked. Treat
+it as the least confirmed number here.
+
+Full comparison: [`docs/cross-check-against-wmt24pp.md`](docs/cross-check-against-wmt24pp.md).
+Reproduce with `tokentax bench --source wmt24pp`.
+
 ## Why it matters
 
 Token tax compounds into three real costs:

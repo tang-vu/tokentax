@@ -7,7 +7,9 @@ on:
   push:
     branches: [main]
     paths:
-      - "results/index.html"
+      # Every published page lives under results/, including the second-corpus
+      # run at results/wmt24pp/.
+      - "results/**"
       - ".github/workflows/pages.yml"
   workflow_dispatch:
 

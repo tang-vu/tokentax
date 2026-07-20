@@ -1,12 +1,11 @@
-"""Parallel-corpus loading and alignment filtering.
+"""Sentence-pair loading and alignment filtering.
 
 Ratios are only meaningful when both sides say the same thing, so every sample
-is a sentence pair from OPUS-100 (``Helsinki-NLP/opus-100``): a human-translated
-corpus covering ~100 languages paired against English.
+is an aligned pair from a parallel corpus. Readers live in
+:mod:`corpus_sources`; the filtering below is applied identically to all of
+them, so figures from different corpora stay comparable.
 
-OPUS-100 is crawled data and contains misalignments and untranslated rows, so
-:func:`load_pairs` applies conservative filters before any counting happens.
-The language table itself lives in :mod:`languages`.
+The language table lives in :mod:`languages`.
 """
 
 from __future__ import annotations
@@ -15,10 +14,12 @@ import re
 from dataclasses import dataclass
 from typing import Iterator
 
+from .corpus_sources import SOURCES, languages_for
 from .languages import BY_CODE, LANGUAGES, Language, resolve
 
 __all__ = [
-    "BY_CODE", "LANGUAGES", "Language", "Pair", "Sample", "load_pairs", "resolve",
+    "BY_CODE", "LANGUAGES", "Language", "Pair", "Sample", "SOURCES",
+    "load_pairs", "resolve", "supports",
 ]
 
 # Filter thresholds. Deliberately loose: the goal is to drop junk, not to
@@ -30,7 +31,7 @@ MIN_CHARS_TARGET = 5
 MIN_CHAR_RATIO = 0.2
 MAX_CHAR_RATIO = 5.0
 
-# Leftover markup from the crawl: HTML entities, tags, escapes, bare URLs.
+# Leftover markup from a crawl: HTML entities, tags, escapes, bare URLs.
 # These matter because they are distributed *asymmetrically* — in the Khmer
 # portion of OPUS-100 they appear in 39% of target sentences and 0% of the
 # English ones. Markup only on the target side adds tokens to the numerator of
@@ -60,7 +61,7 @@ class Pair:
 
 @dataclass(frozen=True)
 class Sample:
-    """Pairs for one language, plus the split they actually came from.
+    """Pairs for one language, plus where they came from.
 
     The split is carried through to the report because a fallback to ``train``
     means the text is not held out and, for low-resource pairs, noisier.
@@ -68,65 +69,73 @@ class Sample:
 
     pairs: list[Pair]
     split: str
+    source: str = "opus-100"
 
 
-def config_name(code: str) -> str:
-    """OPUS-100 names configs as an alphabetically sorted language pair."""
-    return f"en-{code}" if "en" < code else f"{code}-en"
+def supports(source: str, code: str) -> bool:
+    """Whether ``source`` can serve language ``code``."""
+    served = languages_for(source)
+    return served is None or code in served
 
 
-def load_pairs(code: str, limit: int, split: str = "test") -> Sample:
+def load_pairs(
+    code: str,
+    limit: int,
+    split: str | None = None,
+    source: str = "opus-100",
+) -> Sample:
     """Return up to ``limit`` filtered sentence pairs for language ``code``.
 
-    Some OPUS-100 pairs — mostly the lowest-resource ones — ship only a train
+    Some corpora — mostly for the lowest-resource pairs — ship only a train
     split. Dropping those languages would bias the benchmark toward
     well-resourced ones, which is exactly the bias it exists to measure, so the
-    requested split falls back to whatever the config does provide.
+    requested split falls back to whatever the corpus does provide.
 
-    Raises ``KeyError`` for unknown languages and ``RuntimeError`` if the
-    dataset cannot be fetched at all.
+    Raises ``KeyError`` for unknown languages or sources, and ``RuntimeError``
+    if the data cannot be fetched.
     """
     if code not in BY_CODE:
         raise KeyError(f"unknown language code: {code!r}")
-    try:
-        from datasets import get_dataset_split_names, load_dataset
-    except ImportError as exc:  # pragma: no cover - dependency is declared
-        raise RuntimeError("the `datasets` package is required") from exc
+    if source not in SOURCES:
+        raise KeyError(f"unknown corpus source: {source!r}")
 
-    config = config_name(code)
+    spec = SOURCES[source]
+    wanted = split or spec["default_split"]
+
     try:
-        available = list(get_dataset_split_names("Helsinki-NLP/opus-100", config))
+        available = spec["splits"](code)
+    except KeyError:
+        raise
     except Exception as exc:
         raise RuntimeError(
-            f"could not inspect opus-100/{config}: {type(exc).__name__}: {exc}"
+            f"could not inspect {source}/{code}: {type(exc).__name__}: {exc}"
         ) from exc
 
-    chosen = split if split in available else _fallback_split(available, config)
+    chosen = wanted if wanted in available else _fallback_split(available, code)
     try:
-        dataset = load_dataset("Helsinki-NLP/opus-100", config, split=chosen)
+        rows = spec["rows"](code, chosen)
+        pairs = list(_take(_clean(rows), limit))
     except Exception as exc:
         raise RuntimeError(
-            f"could not load opus-100/{config}: {type(exc).__name__}: {exc}"
+            f"could not load {source}/{code}: {type(exc).__name__}: {exc}"
         ) from exc
 
-    return Sample(pairs=list(_take(_clean(dataset, code), limit)), split=chosen)
+    return Sample(pairs=pairs, split=chosen, source=source)
 
 
-def _fallback_split(available: list[str], config: str) -> str:
+def _fallback_split(available: list[str], code: str) -> str:
     """Prefer held-out splits; fall back to train only when nothing else exists."""
     for candidate in ("test", "validation", "train"):
         if candidate in available:
             return candidate
-    raise RuntimeError(f"opus-100/{config} exposes no usable split")
+    raise RuntimeError(f"no usable split for {code}")
 
 
-def _clean(dataset, code: str) -> Iterator[Pair]:
+def _clean(rows) -> Iterator[Pair]:
     """Yield pairs that survive alignment and length filters, deduped."""
     seen: set[str] = set()
-    for row in dataset:
-        translation = row.get("translation") or {}
-        english = (translation.get("en") or "").strip()
-        target = (translation.get(code) or "").strip()
+    for english, target in rows:
+        english, target = english.strip(), target.strip()
         if not english or not target:
             continue
         if not is_usable(english, target):

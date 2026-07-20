@@ -121,9 +121,17 @@ and the report's `Skipped` section names them. The published results were
 produced with `all+gated`; reproducing them exactly requires an account with
 Cohere's terms accepted, and reproducing everything else requires nothing.
 
-**Single corpus.** Every number derives from one dataset. Cross-checking against
-FLORES+ or Tatoeba would strengthen the conclusions; FLORES+ is currently gated
-on the Hub, which is why it is not used here.
+**Two corpora, unevenly.** The headline figures come from OPUS-100. They are
+cross-checked against WMT24++ — professional human translation, no shared text —
+for the 31 languages both cover, and the rankings largely agree (see
+`cross-check-against-wmt24pp.md`). The other 17 languages rest on OPUS-100
+alone, and those include Khmer, which carries the most extreme figure in the
+benchmark. FLORES+ would close much of that gap but is gated on the Hub.
+
+**Absolute tax is domain-sensitive; rankings are less so.** Median drift between
+the two corpora is 12%, and individual languages reach 33%. Read a specific
+number as "roughly this much", and the ordering of tokenizers as the durable
+part.
 
 **Language coverage is intentionally skewed.** The 48 languages over-represent
 non-Latin scripts and under-resourced languages relative to global speaker

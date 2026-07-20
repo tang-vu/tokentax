@@ -2,16 +2,34 @@
 
 import pytest
 
-from tokentax import corpus
+from tokentax import corpus, corpus_sources
 
 
 def test_config_name_orders_pair_alphabetically():
     # OPUS-100 names configs as a sorted pair, so the side English lands on
     # depends on the other language's code.
-    assert corpus.config_name("vi") == "en-vi"
-    assert corpus.config_name("zh") == "en-zh"
-    assert corpus.config_name("de") == "de-en"
-    assert corpus.config_name("ar") == "ar-en"
+    assert corpus_sources.opus_100_config("vi") == "en-vi"
+    assert corpus_sources.opus_100_config("zh") == "en-zh"
+    assert corpus_sources.opus_100_config("de") == "de-en"
+    assert corpus_sources.opus_100_config("ar") == "ar-en"
+
+
+def test_opus_serves_every_language_and_wmt_does_not():
+    # wmt24pp covers 55 locales, so a run against it must skip the rest rather
+    # than silently reporting a partial matrix as complete.
+    assert corpus.supports("opus-100", "km")
+    assert corpus.supports("wmt24pp", "ta")
+    assert not corpus.supports("wmt24pp", "km")
+
+
+def test_every_wmt_locale_maps_to_a_known_language():
+    unknown = set(corpus_sources.WMT24PP_LOCALES) - set(corpus.BY_CODE)
+    assert not unknown, f"locales for languages not in the table: {unknown}"
+
+
+def test_load_pairs_rejects_unknown_source():
+    with pytest.raises(KeyError):
+        corpus.load_pairs("vi", 10, source="not-a-corpus")
 
 
 def test_usable_pair_accepted():

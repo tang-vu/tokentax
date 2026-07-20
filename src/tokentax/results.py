@@ -41,6 +41,7 @@ class BenchmarkRun:
     measurements: list[Measurement] = field(default_factory=list)
     skipped: dict[str, str] = field(default_factory=dict)
     samples_requested: int = 0
+    corpus_source: str = "opus-100"
     corpus_name: str = "Helsinki-NLP/opus-100"
     corpus_split: str = "test"
     generated_at: str = ""
@@ -49,6 +50,7 @@ class BenchmarkRun:
         return {
             "generated_at": self.generated_at,
             "corpus": {
+                "source": self.corpus_source,
                 "name": self.corpus_name,
                 "split": self.corpus_split,
                 "samples_requested": self.samples_requested,
@@ -66,6 +68,7 @@ class BenchmarkRun:
             measurements=[Measurement(**m) for m in data.get("measurements", [])],
             skipped=data.get("skipped", {}),
             samples_requested=corpus_info.get("samples_requested", 0),
+            corpus_source=corpus_info.get("source", "opus-100"),
             corpus_name=corpus_info.get("name", "Helsinki-NLP/opus-100"),
             corpus_split=corpus_info.get("split", "test"),
             generated_at=data.get("generated_at", ""),
