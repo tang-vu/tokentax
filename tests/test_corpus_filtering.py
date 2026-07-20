@@ -60,6 +60,45 @@ def test_resolve_rejects_unknown_language():
         corpus.resolve(["vi", "klingon"])
 
 
+def test_resolve_accepts_a_region_name():
+    african = corpus.resolve(["Africa"])
+    assert african, "Africa should select at least one language"
+    assert all(lang.region == "Africa" for lang in african)
+    assert "am" in {lang.code for lang in african}
+
+
+def test_resolve_region_is_case_insensitive():
+    assert corpus.resolve(["africa"]) == corpus.resolve(["Africa"])
+
+
+def test_resolve_mixes_codes_and_regions():
+    selected = corpus.resolve(["vi", "Africa"])
+    codes = {lang.code for lang in selected}
+    assert "vi" in codes
+    assert "yo" in codes
+
+
+def test_every_language_has_a_distinct_code():
+    codes = [lang.code for lang in corpus.LANGUAGES]
+    assert len(codes) == len(set(codes))
+
+
 def test_load_pairs_rejects_unknown_language():
     with pytest.raises(KeyError):
         corpus.load_pairs("klingon", 10)
+
+
+def test_fallback_prefers_held_out_splits():
+    assert corpus._fallback_split(["train", "test", "validation"], "en-vi") == "test"
+    assert corpus._fallback_split(["train", "validation"], "en-vi") == "validation"
+
+
+def test_fallback_accepts_train_only_configs():
+    # Low-resource pairs often ship train only. Dropping them would bias the
+    # benchmark toward well-resourced languages — the exact bias it measures.
+    assert corpus._fallback_split(["train"], "en-hy") == "train"
+
+
+def test_fallback_raises_when_no_split_is_usable():
+    with pytest.raises(RuntimeError):
+        corpus._fallback_split([], "en-xx")

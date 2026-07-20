@@ -10,7 +10,7 @@ from tokentax.benchmark import Measurement, measure, percentile
 from tokentax.corpus import Language, Pair
 from tokentax.tokenizer_registry import Encoding, TokenizerSpec, supports
 
-VIETNAMESE = Language("vi", "Vietnamese", "Latin")
+VIETNAMESE = Language("vi", "Vietnamese", "Latin", "SE Asia")
 SPEC = TokenizerSpec(
     key="fake", label="Fake", backend="hf", ref="fake/fake", family="Test"
 )

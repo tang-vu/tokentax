@@ -99,6 +99,27 @@ def context_window(
     ]
 
 
+def split_note(run: BenchmarkRun) -> list[str]:
+    """Name the languages whose pairs came from a non-held-out split."""
+    fallbacks = sorted(
+        {
+            (m.language_name, m.split)
+            for m in run.measurements
+            if m.split != run.corpus_split
+        }
+    )
+    if not fallbacks:
+        return []
+    listed = ", ".join(f"{name} (`{split}`)" for name, split in fallbacks)
+    return [
+        "",
+        f"> These languages have no `{run.corpus_split}` split in OPUS-100 and "
+        f"were measured on another split: {listed}. Their text is not held out "
+        "and, being lower-resource pairs, is likely noisier — treat those rows "
+        "as indicative rather than precise.",
+    ]
+
+
 def methodology() -> list[str]:
     return [
         "## Methodology",

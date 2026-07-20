@@ -3,10 +3,12 @@
 from __future__ import annotations
 
 import argparse
+import json
 import sys
 from pathlib import Path
 
-from . import corpus, report, tokenizer_registry
+from . import corpus, report, report_html, tokenizer_registry
+from .benchmark import BenchmarkRun
 from .benchmark import run as run_benchmark
 
 
@@ -21,7 +23,8 @@ def build_parser() -> argparse.ArgumentParser:
     bench.add_argument(
         "--languages",
         default="all",
-        help="comma-separated ISO 639-1 codes, or 'all' (default: all)",
+        help="comma-separated ISO 639-1 codes, region names, or 'all' "
+        "(default: all)",
     )
     bench.add_argument(
         "--tokenizers",
@@ -48,6 +51,22 @@ def build_parser() -> argparse.ArgumentParser:
     )
 
     sub.add_parser("list", help="list available tokenizers and languages")
+
+    render = sub.add_parser(
+        "html", help="re-render the HTML report from an existing results JSON"
+    )
+    render.add_argument(
+        "--input",
+        type=Path,
+        default=Path("results/token-tax.json"),
+        help="results JSON (default: results/token-tax.json)",
+    )
+    render.add_argument(
+        "--out",
+        type=Path,
+        default=Path("results/index.html"),
+        help="output HTML path (default: results/index.html)",
+    )
     return parser
 
 
@@ -56,9 +75,14 @@ def cmd_list() -> int:
     for spec in tokenizer_registry.REGISTRY:
         flag = "  [gated]" if spec.gated else ""
         print(f"  {spec.key:<14} {spec.label:<28} {spec.vocab_note}{flag}")
-    print("\nLanguages:")
+    print(f"\nLanguages ({len(corpus.LANGUAGES)}):")
     for language in corpus.LANGUAGES:
-        print(f"  {language.code:<4} {language.name:<12} {language.script}")
+        print(
+            f"  {language.code:<4} {language.name:<12} "
+            f"{language.script:<12} {language.region}"
+        )
+    regions = sorted({language.region for language in corpus.LANGUAGES})
+    print(f"\nRegions usable with --languages: {', '.join(regions)}")
     return 0
 
 
@@ -90,11 +114,26 @@ def cmd_bench(args: argparse.Namespace) -> int:
     markdown_path = out / "token-tax.md"
     markdown_path.parent.mkdir(parents=True, exist_ok=True)
     markdown_path.write_text(report.to_markdown(result), encoding="utf-8")
+    report_html.write(result, out / "index.html")
 
     print()
     print(report.summarize(result))
     print()
-    print(f"wrote {markdown_path} and {out / 'token-tax.json'}")
+    print(f"wrote {markdown_path}, {out / 'token-tax.json'}, {out / 'index.html'}")
+    return 0
+
+
+def cmd_html(args: argparse.Namespace) -> int:
+    if not args.input.exists():
+        print(f"error: {args.input} not found — run `tokentax bench` first",
+              file=sys.stderr)
+        return 2
+    run = BenchmarkRun.from_dict(json.loads(args.input.read_text(encoding="utf-8")))
+    if not run.measurements:
+        print(f"error: {args.input} contains no measurements", file=sys.stderr)
+        return 1
+    report_html.write(run, args.out)
+    print(f"wrote {args.out}")
     return 0
 
 
@@ -108,6 +147,8 @@ def main(argv: list[str] | None = None) -> int:
         return cmd_list()
     if args.command == "bench":
         return cmd_bench(args)
+    if args.command == "html":
+        return cmd_html(args)
     return 2  # pragma: no cover - argparse enforces the choices
 
 

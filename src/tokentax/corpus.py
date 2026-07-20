@@ -1,4 +1,4 @@
-"""Parallel-corpus loading for token-tax measurement.
+"""Parallel-corpus loading and alignment filtering.
 
 Ratios are only meaningful when both sides say the same thing, so every sample
 is a sentence pair from OPUS-100 (``Helsinki-NLP/opus-100``): a human-translated
@@ -6,6 +6,7 @@ corpus covering ~100 languages paired against English.
 
 OPUS-100 is crawled data and contains misalignments and untranslated rows, so
 :func:`load_pairs` applies conservative filters before any counting happens.
+The language table itself lives in :mod:`languages`.
 """
 
 from __future__ import annotations
@@ -13,35 +14,11 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Iterator
 
+from .languages import BY_CODE, LANGUAGES, Language, resolve
 
-@dataclass(frozen=True)
-class Language:
-    """A language available for benchmarking."""
-
-    code: str  # ISO 639-1, as used by OPUS-100
-    name: str
-    script: str
-
-
-LANGUAGES: tuple[Language, ...] = (
-    Language("vi", "Vietnamese", "Latin"),
-    Language("th", "Thai", "Thai"),
-    Language("zh", "Chinese", "Han"),
-    Language("ja", "Japanese", "Kana/Han"),
-    Language("ko", "Korean", "Hangul"),
-    Language("hi", "Hindi", "Devanagari"),
-    Language("ta", "Tamil", "Tamil"),
-    Language("ar", "Arabic", "Arabic"),
-    Language("fa", "Persian", "Arabic"),
-    Language("ru", "Russian", "Cyrillic"),
-    Language("tr", "Turkish", "Latin"),
-    Language("id", "Indonesian", "Latin"),
-    Language("de", "German", "Latin"),
-    Language("fr", "French", "Latin"),
-    Language("es", "Spanish", "Latin"),
-)
-
-BY_CODE: dict[str, Language] = {lang.code: lang for lang in LANGUAGES}
+__all__ = [
+    "BY_CODE", "LANGUAGES", "Language", "Pair", "Sample", "load_pairs", "resolve",
+]
 
 # Filter thresholds. Deliberately loose: the goal is to drop junk, not to
 # curate toward a flattering result.
@@ -61,34 +38,66 @@ class Pair:
     target: str
 
 
+@dataclass(frozen=True)
+class Sample:
+    """Pairs for one language, plus the split they actually came from.
+
+    The split is carried through to the report because a fallback to ``train``
+    means the text is not held out and, for low-resource pairs, noisier.
+    """
+
+    pairs: list[Pair]
+    split: str
+
+
 def config_name(code: str) -> str:
     """OPUS-100 names configs as an alphabetically sorted language pair."""
     return f"en-{code}" if "en" < code else f"{code}-en"
 
 
-def load_pairs(code: str, limit: int, split: str = "test") -> list[Pair]:
+def load_pairs(code: str, limit: int, split: str = "test") -> Sample:
     """Return up to ``limit`` filtered sentence pairs for language ``code``.
 
+    Some OPUS-100 pairs — mostly the lowest-resource ones — ship only a train
+    split. Dropping those languages would bias the benchmark toward
+    well-resourced ones, which is exactly the bias it exists to measure, so the
+    requested split falls back to whatever the config does provide.
+
     Raises ``KeyError`` for unknown languages and ``RuntimeError`` if the
-    dataset cannot be fetched.
+    dataset cannot be fetched at all.
     """
     if code not in BY_CODE:
         raise KeyError(f"unknown language code: {code!r}")
     try:
-        from datasets import load_dataset
+        from datasets import get_dataset_split_names, load_dataset
     except ImportError as exc:  # pragma: no cover - dependency is declared
         raise RuntimeError("the `datasets` package is required") from exc
 
+    config = config_name(code)
     try:
-        dataset = load_dataset(
-            "Helsinki-NLP/opus-100", config_name(code), split=split
-        )
+        available = list(get_dataset_split_names("Helsinki-NLP/opus-100", config))
     except Exception as exc:
         raise RuntimeError(
-            f"could not load opus-100/{config_name(code)}: {type(exc).__name__}: {exc}"
+            f"could not inspect opus-100/{config}: {type(exc).__name__}: {exc}"
         ) from exc
 
-    return list(_take(_clean(dataset, code), limit))
+    chosen = split if split in available else _fallback_split(available, config)
+    try:
+        dataset = load_dataset("Helsinki-NLP/opus-100", config, split=chosen)
+    except Exception as exc:
+        raise RuntimeError(
+            f"could not load opus-100/{config}: {type(exc).__name__}: {exc}"
+        ) from exc
+
+    return Sample(pairs=list(_take(_clean(dataset, code), limit)), split=chosen)
+
+
+def _fallback_split(available: list[str], config: str) -> str:
+    """Prefer held-out splits; fall back to train only when nothing else exists."""
+    for candidate in ("test", "validation", "train"):
+        if candidate in available:
+            return candidate
+    raise RuntimeError(f"opus-100/{config} exposes no usable split")
 
 
 def _clean(dataset, code: str) -> Iterator[Pair]:
@@ -126,13 +135,3 @@ def _take(iterator: Iterator[Pair], limit: int) -> Iterator[Pair]:
         if index >= limit:
             return
         yield item
-
-
-def resolve(codes: list[str] | None) -> list[Language]:
-    """Map CLI codes to languages. ``None`` or ``["all"]`` selects everything."""
-    if codes is None or codes == ["all"]:
-        return list(LANGUAGES)
-    unknown = [c for c in codes if c not in BY_CODE]
-    if unknown:
-        raise KeyError(f"unknown language codes: {', '.join(unknown)}")
-    return [BY_CODE[c] for c in codes]

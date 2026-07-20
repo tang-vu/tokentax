@@ -10,6 +10,7 @@ def make_measurement(
     tax: float,
     lossy: bool = False,
     legacy: bool = False,
+    split: str = "test",
 ):
     return Measurement(
         tokenizer=tokenizer,
@@ -26,6 +27,7 @@ def make_measurement(
         unknown_rate=0.5 if lossy else 0.0,
         lossy=lossy,
         legacy=legacy,
+        split=split,
     )
 
 
@@ -111,6 +113,25 @@ def test_languages_ordered_by_mean_tax_descending():
     )
     markdown = report.to_markdown(run)
     assert markdown.index("| Thai |") < markdown.index("| Vietnamese |")
+
+
+def test_fallback_split_is_disclosed():
+    # A train-split row is not held out; the report must say so rather than
+    # presenting it as equivalent to the others.
+    run = build_run(
+        [
+            make_measurement("o200k", "vi", 1.19),
+            make_measurement("o200k", "th", 2.50, split="train"),
+        ]
+    )
+    markdown = report.to_markdown(run)
+    assert "Thai (`train`)" in markdown
+    assert "not held out" in markdown
+
+
+def test_no_split_note_when_every_row_used_the_requested_split():
+    run = build_run([make_measurement("o200k", "vi", 1.19)])
+    assert "not held out" not in report.to_markdown(run)
 
 
 def test_skipped_entries_are_reported():

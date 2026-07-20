@@ -45,6 +45,9 @@ class Measurement:
     unknown_rate: float = 0.0
     lossy: bool = False
     legacy: bool = False
+    # Split the pairs actually came from. Differs from the requested split when
+    # a low-resource language ships only a train split.
+    split: str = "test"
 
 
 @dataclass
@@ -70,6 +73,20 @@ class BenchmarkRun:
             "measurements": [asdict(m) for m in self.measurements],
         }
 
+    @classmethod
+    def from_dict(cls, data: dict) -> "BenchmarkRun":
+        """Rebuild a run from its JSON form, so reports can be re-rendered
+        without repeating the measurement pass."""
+        corpus_info = data.get("corpus", {})
+        return cls(
+            measurements=[Measurement(**m) for m in data.get("measurements", [])],
+            skipped=data.get("skipped", {}),
+            samples_requested=corpus_info.get("samples_requested", 0),
+            corpus_name=corpus_info.get("name", "Helsinki-NLP/opus-100"),
+            corpus_split=corpus_info.get("split", "test"),
+            generated_at=data.get("generated_at", ""),
+        )
+
     def for_tokenizer(self, key: str) -> list[Measurement]:
         return [m for m in self.measurements if m.tokenizer == key]
 
@@ -82,6 +99,7 @@ def measure(
     language: Language,
     pairs: list[Pair],
     encode: tokenizer_registry.EncodeFn,
+    split: str = "test",
 ) -> Measurement:
     """Measure one tokenizer against one language's sentence pairs."""
     if not pairs:
@@ -129,6 +147,7 @@ def measure(
         unknown_rate=round(unknown_rate, 5),
         lossy=unknown_rate > LOSSY_UNKNOWN_RATE,
         legacy=spec.legacy,
+        split=split,
     )
 
 
@@ -171,14 +190,18 @@ def run(
     for language in languages:
         say(f"loading corpus {language.name} ({language.code})")
         try:
-            pairs = corpus.load_pairs(language.code, samples, split=split)
+            sample = corpus.load_pairs(language.code, samples, split=split)
         except (RuntimeError, KeyError) as exc:
             result.skipped[f"corpus:{language.code}"] = str(exc)
             say(f"  skipped: {exc}")
             continue
+        pairs = sample.pairs
         if not pairs:
             result.skipped[f"corpus:{language.code}"] = "no pairs survived filtering"
             continue
+        if sample.split != split:
+            say(f"  note: {language.name} has no '{split}' split, using "
+                f"'{sample.split}'")
 
         measured = 0
         for spec in specs:
@@ -188,7 +211,9 @@ def run(
             if not tokenizer_registry.supports(spec, language.code):
                 continue  # monolingual tokenizer, different language
             try:
-                result.measurements.append(measure(spec, language, pairs, encode))
+                result.measurements.append(
+                    measure(spec, language, pairs, encode, split=sample.split)
+                )
                 measured += 1
             except ValueError as exc:
                 result.skipped[f"{spec.key}:{language.code}"] = str(exc)

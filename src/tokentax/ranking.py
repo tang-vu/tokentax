@@ -33,16 +33,43 @@ def deployable(measurements: list[Measurement]) -> list[Measurement]:
     return kept or candidates
 
 
-def ordered_tokenizers(run: BenchmarkRun) -> list[tuple[str, str]]:
+def ordered_tokenizers(
+    run: BenchmarkRun, general_only: bool = False
+) -> list[tuple[str, str]]:
     """Registry order, restricted to tokenizers that produced data.
 
-    Registry order runs oldest to newest, so columns read as a timeline.
+    Registry order runs oldest to newest, so columns read as a timeline. With
+    ``general_only`` set, monolingual tokenizers are dropped: in a wide matrix
+    they contribute one value and a column of dashes, so they are better
+    reported separately.
     """
     from .tokenizer_registry import REGISTRY
 
     present = {m.tokenizer for m in run.measurements}
     labels = {m.tokenizer: m.tokenizer_label for m in run.measurements}
-    return [(s.key, labels[s.key]) for s in REGISTRY if s.key in present]
+    return [
+        (s.key, labels[s.key])
+        for s in REGISTRY
+        if s.key in present and not (general_only and s.languages is not None)
+    ]
+
+
+def monolingual(run: BenchmarkRun) -> list[Measurement]:
+    """Measurements from tokenizers built for a single language.
+
+    They are not alternatives to a general-purpose tokenizer — you cannot bolt
+    one onto a multilingual model — but they show how low the tax can go when a
+    vocabulary is built for one language, which is the useful reference point.
+    """
+    from .tokenizer_registry import BY_KEY
+
+    return [
+        m
+        for m in run.measurements
+        if (spec := BY_KEY.get(m.tokenizer)) is not None
+        and spec.languages is not None
+        and not m.lossy
+    ]
 
 
 def ordered_languages(run: BenchmarkRun) -> list[tuple[str, str]]:
