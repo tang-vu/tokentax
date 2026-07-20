@@ -52,7 +52,9 @@ body {
   background: var(--plane); color: var(--ink);
   font: 15px/1.55 system-ui, -apple-system, "Segoe UI", sans-serif;
 }
-.wrap { max-width: 1180px; margin: 0 auto; }
+/* Wide enough for the full tokenizer matrix without horizontal scrolling on a
+   laptop. Prose blocks below keep their own narrower measure. */
+.wrap { max-width: 1420px; margin: 0 auto; }
 h1 { font-size: 1.6rem; margin: 0 0 .35rem; letter-spacing: -0.01em; }
 .sub { color: var(--ink-2); margin: 0 0 1.75rem; max-width: 62ch; }
 .meta { color: var(--ink-muted); font-size: .82rem; margin-top: .4rem; }

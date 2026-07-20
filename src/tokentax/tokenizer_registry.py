@@ -96,12 +96,44 @@ REGISTRY: tuple[TokenizerSpec, ...] = (
         vocab_note="250k, multilingual by design",
     ),
     TokenizerSpec(
+        key="llama3",
+        label="Llama 3",
+        backend="hf",
+        ref="NousResearch/Meta-Llama-3-8B",
+        family="Meta",
+        vocab_note="128k BPE; community mirror, Meta's own repo is gated",
+    ),
+    TokenizerSpec(
+        key="gemma2",
+        label="Gemma 2",
+        backend="hf",
+        ref="unsloth/gemma-2-2b",
+        family="Google",
+        vocab_note="256k SentencePiece; community mirror, Google's repo is gated",
+    ),
+    TokenizerSpec(
         key="qwen2.5",
         label="Qwen2.5",
         backend="hf",
         ref="Qwen/Qwen2.5-1.5B-Instruct",
         family="Alibaba",
         vocab_note="152k BPE",
+    ),
+    TokenizerSpec(
+        key="deepseek-v3",
+        label="DeepSeek V3",
+        backend="hf",
+        ref="deepseek-ai/DeepSeek-V3",
+        family="DeepSeek",
+        vocab_note="129k BPE",
+    ),
+    TokenizerSpec(
+        key="gemma3",
+        label="Gemma 3",
+        backend="hf",
+        ref="unsloth/gemma-3-1b-pt",
+        family="Google",
+        vocab_note="262k SentencePiece; community mirror",
     ),
     TokenizerSpec(
         key="qwen3",
@@ -117,7 +149,10 @@ REGISTRY: tuple[TokenizerSpec, ...] = (
         backend="hf",
         ref="aisingapore/Llama-SEA-LION-v3-8B-IT",
         family="AI Singapore",
-        vocab_note="Llama 3 vocab extended for SEA languages",
+        # Measured, not assumed: the content vocabulary is byte-for-byte Llama
+        # 3's. The only differences are three special tokens, so every tax
+        # figure here matches Llama 3 exactly.
+        vocab_note="Llama 3 vocabulary, unchanged except for 3 special tokens",
     ),
     TokenizerSpec(
         key="phobert",
@@ -127,24 +162,6 @@ REGISTRY: tuple[TokenizerSpec, ...] = (
         family="VinAI",
         vocab_note="64k, monolingual Vietnamese baseline",
         languages=("vi",),
-    ),
-    TokenizerSpec(
-        key="llama3",
-        label="Llama 3.2",
-        backend="hf",
-        ref="meta-llama/Llama-3.2-1B",
-        family="Meta",
-        vocab_note="128k BPE",
-        gated=True,
-    ),
-    TokenizerSpec(
-        key="gemma2",
-        label="Gemma 2",
-        backend="hf",
-        ref="google/gemma-2-2b",
-        family="Google",
-        vocab_note="256k SentencePiece",
-        gated=True,
     ),
 )
 

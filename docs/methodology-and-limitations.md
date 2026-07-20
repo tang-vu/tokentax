@@ -93,10 +93,20 @@ and therefore dilute the measured tax slightly in practice.
 `tokenizer.json` was loaded. Models sharing a vocabulary produce identical
 numbers; the registry labels are chosen to make the family clear.
 
-**Gated repos are skipped by default.** Llama and Gemma tokenizers require
-Hugging Face authentication. They are in the registry but excluded unless run
-with `--tokenizers all+gated` while authenticated, and their absence is recorded
-in the report's `Skipped` section rather than hidden.
+**Some tokenizers come from community mirrors.** Meta's and Google's own
+Hugging Face repos are gated behind an access agreement, which would make the
+benchmark unreproducible for anyone without accepted terms. Llama 3, Gemma 2,
+and Gemma 3 are therefore loaded from public re-uploads, flagged as mirrors in
+`tokentax list`.
+
+Vocabulary sizes match the published specifications (Llama 3 at 128,256; Gemma 2
+at 256,000), which is a useful consistency check but not a cryptographic one. If
+a mirror diverged from the original in some subtler way, this benchmark would
+not detect it. Anyone with accepted terms can point those entries at the
+official repos and compare.
+
+The `gated` flag remains in the registry so a future gated entry fails with a
+clear message rather than an opaque 401.
 
 **Single corpus.** Every number derives from one dataset. Cross-checking against
 FLORES+ or Tatoeba would strengthen the conclusions; FLORES+ is currently gated
