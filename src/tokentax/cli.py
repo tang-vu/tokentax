@@ -7,7 +7,7 @@ import json
 import sys
 from pathlib import Path
 
-from . import corpus, report, report_html, tokenizer_registry
+from . import check, corpus, report, report_html, tokenizer_registry
 from .benchmark import run as run_benchmark
 from .results import BenchmarkRun
 
@@ -51,6 +51,19 @@ def build_parser() -> argparse.ArgumentParser:
     )
 
     sub.add_parser("list", help="list available tokenizers and languages")
+
+    inspect = sub.add_parser(
+        "check", help="count tokens for your own text across every tokenizer"
+    )
+    inspect.add_argument("text", nargs="?", help="text to measure")
+    inspect.add_argument(
+        "--file", type=Path, help="read the text from a file instead"
+    )
+    inspect.add_argument(
+        "--tokenizers",
+        default="all",
+        help="comma-separated keys, or 'all' (default: all)",
+    )
 
     render = sub.add_parser(
         "render",
@@ -118,6 +131,22 @@ def cmd_bench(args: argparse.Namespace) -> int:
     return 0
 
 
+def cmd_check(args: argparse.Namespace) -> int:
+    try:
+        text = check.resolve_text(args.text, args.file)
+        specs = tokenizer_registry.resolve(_split(args.tokenizers))
+    except (check.InputError, KeyError) as exc:
+        print(f"error: {exc}", file=sys.stderr)
+        return 2
+
+    counts, failures = check.count_all(text, specs)
+    if not counts:
+        print("error: no tokenizers could be loaded", file=sys.stderr)
+        return 1
+    print(check.format_report(text, counts, failures))
+    return 0
+
+
 def cmd_render(args: argparse.Namespace) -> int:
     if not args.input.exists():
         print(f"error: {args.input} not found — run `tokentax bench` first",
@@ -153,6 +182,8 @@ def main(argv: list[str] | None = None) -> int:
         return cmd_bench(args)
     if args.command == "render":
         return cmd_render(args)
+    if args.command == "check":
+        return cmd_check(args)
     return 2  # pragma: no cover - argparse enforces the choices
 
 

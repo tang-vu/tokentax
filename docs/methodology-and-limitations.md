@@ -112,7 +112,7 @@ clear message rather than an opaque 401.
 FLORES+ or Tatoeba would strengthen the conclusions; FLORES+ is currently gated
 on the Hub, which is why it is not used here.
 
-**Language coverage is intentionally skewed.** The 47 languages over-represent
+**Language coverage is intentionally skewed.** The 48 languages over-represent
 non-Latin scripts and under-resourced languages relative to global speaker
 counts. Western European languages are present as a control group, not for
 balance. Do not read the language list as a ranking of importance.

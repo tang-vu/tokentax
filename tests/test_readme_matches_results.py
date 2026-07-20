@@ -5,11 +5,15 @@ figure in the one file everybody reads is worse than no figure at all. Every
 number asserted in prose is listed here and checked against
 ``results/token-tax.json``.
 
+The README fixture collapses whitespace, so assertions survive re-wrapping of
+the prose and only fail when the substance changes.
+
 These tests skip when results are absent, so a fresh clone can still run the
 suite offline before producing any.
 """
 
 import json
+import re
 from collections import Counter
 from pathlib import Path
 
@@ -29,7 +33,7 @@ def data():
 
 @pytest.fixture(scope="module")
 def readme():
-    return README.read_text(encoding="utf-8")
+    return re.sub(r"\s+", " ", README.read_text(encoding="utf-8"))
 
 
 def by_language(data, name):
@@ -39,6 +43,11 @@ def by_language(data, name):
 def deployable(rows):
     """Cells eligible for a "which should I pick" claim."""
     return [m for m in rows if not m["lossy"] and not m["legacy"]]
+
+
+def general_purpose(rows):
+    """A monolingual tokenizer is not an option for a multilingual model."""
+    return [m for m in deployable(rows) if m["tokenizer"] != "phobert"]
 
 
 def tax(data, language, tokenizer):
@@ -58,21 +67,26 @@ def test_language_and_tokenizer_counts(data, readme):
 @pytest.mark.parametrize(
     "language,tokenizer,claimed",
     [
-        ("Burmese", "sea-lion-v3", 9.28),
-        ("Burmese", "llama3", 9.28),
-        ("Khmer", "sea-lion-v3", 7.50),
-        ("Malayalam", "bloom", 1.20),
+        ("Khmer", "aya-101", 1.49),
+        ("Burmese", "aya-101", 1.38),
+        ("Sinhala", "aya-101", 1.25),
+        ("Amharic", "aya-101", 1.50),
         ("Malayalam", "mistral-v3", 8.77),
+        ("Malayalam", "mistral-nemo", 2.33),
         ("Punjabi", "mistral-v3", 8.93),
-        ("Punjabi", "gpt2", 6.42),
+        ("Punjabi", "mistral-nemo", 2.77),
+        ("Khmer", "mistral-v3", 5.46),
+        ("Khmer", "mistral-nemo", 12.08),
+        ("Khmer", "gpt2", 11.88),
         ("Vietnamese", "mistral-v3", 2.25),
         ("Vietnamese", "cl100k", 1.93),
         ("Vietnamese", "bloom", 1.04),
-        ("Vietnamese", "gemma3", 1.08),
+        ("Vietnamese", "llama4", 1.12),
+        ("Vietnamese", "aya-101", 1.53),
         ("Vietnamese", "phobert", 0.76),
-        ("Amharic", "gemma3", 1.98),
-        ("Burmese", "gemma3", 2.10),
-        ("Sinhala", "gemma3", 1.80),
+        ("Chinese", "bloom", 0.78),
+        ("Indonesian", "bloom", 0.92),
+        ("Malay", "bloom", 0.98),
     ],
 )
 def test_quoted_figure_matches_results(data, readme, language, tokenizer, claimed):
@@ -80,57 +94,66 @@ def test_quoted_figure_matches_results(data, readme, language, tokenizer, claime
     assert f"{claimed:.2f}x" in readme
 
 
-def test_malayalam_spread_claim(data, readme):
-    rows = deployable(by_language(data, "Malayalam"))
-    spread = max(m["tax"] for m in rows) / min(m["tax"] for m in rows)
-    assert round(spread, 1) == 7.3
-    assert "**7.3x**" in readme
+def test_khmer_is_the_worst_cell_measured(data, readme):
+    worst = max(
+        (m for m in data if not m["lossy"] and not m["legacy"]),
+        key=lambda m: m["tax"],
+    )
+    assert worst["language_name"] == "Khmer"
+    assert worst["tokenizer"] == "mistral-nemo"
+    assert "the highest tax anywhere in this benchmark" in readme
 
 
-def test_languages_claimed_to_have_spreads_above_five(data):
-    for language in ("Punjabi", "Gujarati", "Kannada", "Telugu", "Tamil"):
-        rows = deployable(by_language(data, language))
-        spread = max(m["tax"] for m in rows) / min(m["tax"] for m in rows)
-        assert spread > 5, f"{language} spread fell to {spread:.1f}"
+def test_tekken_helps_indic_and_hurts_khmer(data, readme):
+    """The README's sharpest claim: the same vocabulary swap cut both ways."""
+    for language in ("Malayalam", "Punjabi"):
+        assert tax(data, language, "mistral-nemo") < tax(data, language, "mistral-v3")
+    assert tax(data, "Khmer", "mistral-nemo") > tax(data, "Khmer", "mistral-v3")
+    assert tax(data, "Khmer", "mistral-nemo") > tax(data, "Khmer", "gpt2")
+    assert "Fixing one script can break another" in readme
 
 
 def test_cheapest_tokenizer_counts(data, readme):
     languages = {m["language_name"] for m in data}
     counts = Counter(
-        min(deployable(by_language(data, lang)), key=lambda m: m["tax"])["tokenizer"]
+        min(general_purpose(by_language(data, lang)), key=lambda m: m["tax"])[
+            "tokenizer"
+        ]
         for lang in languages
     )
-    assert counts["bloom"] == 19
-    assert counts["gemma3"] == 12
-    assert counts["o200k"] == 8
-    assert counts["gemma2"] == 7
-    for claim in ("cheapest for 19 of 48", "Gemma 3 is cheapest for 12"):
-        assert claim in readme
+    assert counts["aya-101"] == 28
+    assert counts["bloom"] == 16
+    assert "**28 of 48**" in readme
+    assert "cheapest for 28 languages, BLOOM for 16" in readme
 
 
 def test_most_expensive_tokenizer_counts(data, readme):
     languages = {m["language_name"] for m in data}
     counts = Counter(
-        max(deployable(by_language(data, lang)), key=lambda m: m["tax"])["tokenizer"]
+        max(general_purpose(by_language(data, lang)), key=lambda m: m["tax"])[
+            "tokenizer"
+        ]
         for lang in languages
     )
-    assert counts["mistral-v3"] == 17 and counts["cl100k"] == 17
+    assert counts["mistral-v3"] == 17
+    assert counts["cl100k"] == 10
     assert counts["bloom"] == 8
-    assert "each worst for 17" in readme
+    assert counts["glm4.5"] == 6
+    assert "worst for 17, cl100k for 10, GLM-4.5 for 6" in readme
 
 
-def test_gpt2_is_last_place_for_all_but_two_languages(data, readme):
+def test_gpt2_is_last_place_for_all_but_three_languages(data, readme):
     languages = {m["language_name"] for m in data}
     exceptions = {
         lang
         for lang in languages
         if max(by_language(data, lang), key=lambda m: m["tax"])["tokenizer"] != "gpt2"
     }
-    assert exceptions == {"Punjabi", "Armenian"}
-    assert "46 of 48" in readme
+    assert exceptions == {"Punjabi", "Armenian", "Khmer"}
+    assert "45 of 48 languages" in readme
 
 
-def test_sea_lion_matches_llama3_everywhere(data):
+def test_sea_lion_matches_llama3_everywhere(data, readme):
     """SEA-LION v3 reuses Llama 3's content vocabulary, so taxes must agree.
 
     If this ever fails, SEA-LION shipped a real tokenizer change and the
@@ -141,17 +164,14 @@ def test_sea_lion_matches_llama3_everywhere(data):
         m["language_name"]: m["tax"] for m in data if m["tokenizer"] == "sea-lion-v3"
     }
     assert llama and llama == sea
+    assert "byte-for-byte Llama 3's" in readme
 
 
 def test_languages_claimed_cheaper_than_english(data, readme):
     for language in ("Chinese", "Indonesian", "Malay"):
-        rows = [
-            m
-            for m in deployable(by_language(data, language))
-            if m["tokenizer"] != "phobert"
-        ]
+        rows = general_purpose(by_language(data, language))
         assert min(m["tax"] for m in rows) < 1.0, language
-    assert "dip below\n1.00x" in readme or "dip below 1.00x" in readme
+    assert "dip below parity" in readme
 
 
 @pytest.mark.parametrize(
@@ -162,16 +182,18 @@ def test_cl100k_to_o200k_improvement(data, language, claimed):
     assert round(ratio, 1) == claimed
 
 
-def test_burmese_effective_context_claim(data, readme):
-    worst = max(m["tax"] for m in deployable(by_language(data, "Burmese")))
-    assert round(128_000 / worst / 1000) == 14
-    assert "~14k tokens" in readme
+def test_khmer_effective_context_claim(data, readme):
+    worst = max(m["tax"] for m in general_purpose(by_language(data, "Khmer")))
+    assert round(128_000 / worst / 1000) == 11
+    assert "~11k tokens" in readme
 
 
 @pytest.mark.parametrize(
-    "language,claimed", [("Kurdish", 3.14), ("Yoruba", 2.98), ("Khmer", 2.75)]
+    "language,claimed",
+    [("Khmer", 1.49), ("Burmese", 1.38), ("Sinhala", 1.25), ("Amharic", 1.50)],
 )
-def test_claimed_floors(data, readme, language, claimed):
-    floor = min(m["tax"] for m in deployable(by_language(data, language)))
-    assert round(floor, 2) == claimed
-    assert f"{claimed:.2f}x" in readme
+def test_aya_sets_the_floor_for_the_worst_served_languages(data, language, claimed):
+    rows = general_purpose(by_language(data, language))
+    floor = min(rows, key=lambda m: m["tax"])
+    assert round(floor["tax"], 2) == claimed
+    assert floor["tokenizer"] == "aya-101"

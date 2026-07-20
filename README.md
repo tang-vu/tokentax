@@ -6,7 +6,7 @@ Same sentence, same meaning, different language — and wildly different token
 counts. `tokentax` measures that gap across LLM tokenizers using a
 human-translated parallel corpus, so the only variable is the tokenizer.
 
-**48 languages, 23 writing systems, 13 tokenizers.** Runs on a laptop: no GPU,
+**48 languages, 23 writing systems, 20 tokenizers.** Runs on a laptop: no GPU,
 no model weights, no API keys — tokenizers only.
 
 📊 **[Interactive results →](https://tang-vu.github.io/tokentax/)**
@@ -15,48 +15,46 @@ no model weights, no API keys — tokenizers only.
 
 ## What the data says
 
+**Building for a language beats building big.** Aya 101, explicitly trained for
+101 languages, is the cheapest option for **28 of 48** languages — more than
+every other tokenizer combined. It does this at 250k vocabulary entries, the
+same size as BLOOM's, and it wins on exactly the languages everyone else
+struggles with: Khmer 1.49x, Burmese 1.38x, Sinhala 1.25x, Amharic 1.50x.
+Coverage is a choice, not a budget.
+
 **A regional model can ship the tokenizer it was supposed to fix.** Llama-SEA-LION
-v3 is built for Southeast Asia by continued pretraining on Llama 3. Its
-Burmese and Khmer token costs — 9.28x and 7.50x — are *identical to Llama 3's*,
-because its content vocabulary is byte-for-byte Llama 3's. The only differences
-are three special tokens. The weights learned Southeast Asian languages; the
-tokenizer never did, so users still pay Llama 3's tax on every request.
+v3 is built for Southeast Asia by continued pretraining on Llama 3. Its Burmese
+and Khmer costs are *identical to Llama 3's*, because its content vocabulary is
+byte-for-byte Llama 3's — the only differences are three special tokens. The
+weights learned Southeast Asian languages; the tokenizer never did.
 
-**The gap between tokenizers is bigger than most people's entire optimisation
-budget.** Malayalam costs 1.20x on BLOOM and 8.77x on Mistral 7B v0.3 — a
-**7.3x** difference for identical text, decided entirely by which tokenizer you
-picked. Punjabi, Gujarati, Kannada, Telugu, and Tamil all show gaps above 5x.
+**Fixing one script can break another.** Mistral replaced its 32k vocabulary
+with the 131k Tekken, and for Indic scripts it worked: Malayalam fell from 8.77x
+to 2.33x, Punjabi 8.93x to 2.77x. Khmer went the other way — 5.46x to **12.08x**,
+the highest tax anywhere in this benchmark, and worse than GPT-2's 11.88x. One
+Khmer sentence costing 6 tokens in English costs 98 on Tekken and 16 on Aya.
 
-**A 2024 tokenizer can be worse than a 2019 one.** Mistral 7B v0.3 costs 8.93x
-for Punjabi; GPT-2, English-only and six years older, costs 6.42x. Punjabi and
-Armenian are the only two languages of 48 where anything beats GPT-2 to last
-place — and in both cases it is a currently shipping model.
+**A 2025 tokenizer can be worse than a 2019 one.** GPT-2 is last place for 45 of
+48 languages. The three exceptions — Khmer, Punjabi, Armenian — are all beaten
+to last place by tokenizers shipping today.
 
-**Some languages have no good option.** Kurdish's cheapest tokenizer still costs
-3.14x, Yoruba 2.98x, Khmer 2.75x. For these, switching vendors does not rescue
-you — nobody has built a vocabulary that covers them well.
+**There is no universal winner.** Aya 101 is cheapest for 28 languages, BLOOM
+for 16 — and BLOOM is the *most expensive* for 8 others. Mistral v0.3 is worst
+for 17, cl100k for 10, GLM-4.5 for 6. Pick by your language, not by reputation.
 
-**Newer vocabularies are closing the gap.** Gemma 3 is the cheapest option for
-12 of 48 languages and improves on every previously measured tokenizer for
-Amharic (2.90x → 1.98x), Burmese (2.64x → 2.10x), and Sinhala (2.11x → 1.80x).
-The languages that were worst served are exactly where the recent gains land.
+**Rebuilding the vocabulary works.** Between OpenAI's cl100k and o200k, the same
+content got 4.5x cheaper in Armenian, 4.2x in Malayalam, 4.1x in Kannada. This
+is a solvable problem, and vendors solve it when they choose to.
 
-**There is no universal winner.** BLOOM is cheapest for 19 of 48 languages and
-the *most expensive* for 8 others. Gemma 3 is cheapest for 12, GPT-4o for 8,
-Gemma 2 for 7. Mistral v0.3 and cl100k are each worst for 17. Pick by your
-language, not by reputation.
+**A few languages beat English.** Chinese (0.78x), Indonesian (0.92x), and Malay
+(0.98x) all dip below parity on their best tokenizer. Dense scripts win when the
+vocabulary covers them.
 
-**Rebuilding the vocabulary works — dramatically.** Between OpenAI's cl100k and
-o200k, the same content got 4.5x cheaper in Armenian, 4.2x in Malayalam, 4.1x in
-Kannada. This is a solvable problem, and vendors solve it when they choose to.
-
-**A few languages beat English.** Chinese, Indonesian, and Malay all dip below
-1.00x on their best tokenizer. Dense scripts win when the vocabulary covers them.
-
-**Vietnamese**, for the curious: 2.25x on Mistral and 1.93x on cl100k, down to
-1.04x on BLOOM and 1.08x on Gemma 3. PhoBERT, trained only on Vietnamese,
-reaches 0.76x — you cannot bolt it onto a general model, but it shows how much
-headroom the multilingual tokenizers leave on the table.
+**Vietnamese**, for the curious: 2.25x on Mistral v0.3 and 1.93x on cl100k, down
+to 1.04x on BLOOM and 1.12x on Llama 4. Notably Aya 101, which dominates
+elsewhere, manages only 1.53x here — no tokenizer is good at everything. PhoBERT,
+trained only on Vietnamese, reaches 0.76x; you cannot bolt it onto a general
+model, but it shows the headroom the multilingual tokenizers leave on the table.
 
 Full matrix, per-tokenizer detail, effective-context tables:
 [`results/token-tax.md`](results/token-tax.md) ·
@@ -67,16 +65,37 @@ Full matrix, per-tokenizer detail, effective-context tables:
 Token tax compounds into three real costs:
 
 - **Bill.** APIs charge per token. A 2x tax is a 2x invoice for identical work.
-- **Context.** A nominal 128k window holds only ~14k tokens' worth of English
-  content when you write Burmese at 9.28x.
+- **Context.** A nominal 128k window holds only ~11k tokens' worth of English
+  content when you write Khmer at 12.08x.
 - **Latency.** More tokens per request means slower first token and slower
   generation.
+
+## What does *your* text cost?
+
+```console
+$ tokentax check "Chính phủ vừa ban hành nghị định mới về quản lý thuế điện tử."
+
+61 characters, 14 whitespace-separated words
+
+  BLOOM                             15 tokens    1.00x
+  Qwen3                             16 tokens    1.07x
+  Gemma 3                           16 tokens    1.07x
+  GPT-4o (o200k)                    17 tokens    1.13x
+  Mistral Nemo (Tekken)             17 tokens    1.13x
+  GPT-3.5 / GPT-4 (cl100k)          32 tokens    2.13x
+  Mistral 7B v0.3                   40 tokens    2.67x
+
+Mistral 7B v0.3 costs 2.7x more than BLOOM for this text.
+```
+
+Works on a file too: `tokentax check --file prompt.txt`.
 
 ## Usage
 
 ```bash
 pip install -e .
 
+tokentax check "your text"             # what your own prompt costs
 tokentax list                          # tokenizers, languages, regions
 tokentax bench                         # everything, 500 pairs per language
 tokentax bench --languages vi,th,ta    # specific languages
@@ -103,9 +122,9 @@ are `<unk>` and the Thai is disintegrating into characters. Cells above 1%
 unknown tokens are flagged and excluded from rankings.
 
 **Historical baselines don't pad the rankings.** GPT-2 is the worst option for
-46 of 48 languages. Leaving it in the "most expensive" column would be true and
+45 of 48 languages. Leaving it in the "most expensive" column would be true and
 useless, so it appears in the matrix as a reference point only — which is also
-how the two exceptions become visible.
+how the three exceptions become visible.
 
 **Low-resource languages aren't quietly dropped.** Some OPUS-100 pairs ship no
 held-out split. Skipping them would bias the benchmark toward well-resourced
