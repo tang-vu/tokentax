@@ -6,3 +6,9 @@ build/
 dist/
 .pytest_cache/
 .hf_cache/
+
+# AI assistant artifacts
+.devin/
+.claude/settings.local.json
+.claude/scheduled_tasks.lock
+NUL
